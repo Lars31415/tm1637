@@ -4,10 +4,10 @@
  */
 #include "tm1637.hpp"
 
-#include <pico/stdlib.h>
-#include <iostream>
-#include <sstream>
 #include <iomanip>
+#include <iostream>
+#include <pico/stdlib.h>
+#include <sstream>
 #include <utility>
 
 /**
@@ -83,7 +83,13 @@ uint8_t _SEGMENTS[] = {
     0x5B, // 	35	z
     0x00, // 	36	space
     0x40, // 	37	-
-    0x63  //	38	*
+    0x63, //	38	*
+    0x0C, //	39	<
+    0x03, //	40	>
+    0x01, //	41	^
+    0x08, //	42	_
+    0x4E, //	43	'\'
+    0x47  //	44	/
 };
 
 /**
@@ -93,8 +99,10 @@ uint8_t _SEGMENTS[] = {
  * @param brightness Brightness level for the display (0-7).
  */
 TM1637::TM1637(uint8_t clk, uint8_t dio, uint8_t brightness)
-    : clk_(clk), dio_(dio), brightness_(std::min(uint8_t(0x07), brightness))
+    : clk_(clk), dio_(dio), brightness_(std::min(uint8_t(0x07), brightness)), ack(2)
 {
+    std::cout << __FILE__ << " " << __FUNCTION__ << " " << std::dec << __LINE__ << std::endl;
+    std::cout << "clk " << (uint)clk << " dio " << (uint)dio << std::endl;
     gpio_init(clk_);
     gpio_set_dir(clk_, GPIO_OUT);
     gpio_pull_up(clk_);
@@ -115,13 +123,13 @@ void TM1637::_start()
 {
     // std::cout << __FUNCTION__ << std::endl;
     gpio_put(clk_, 1);
-    sleep_us(TM1637_DELAY);
+    DELAY();
     gpio_put(dio_, 1);
-    sleep_us(TM1637_DELAY);
+    DELAY();
     gpio_put(dio_, 0);
-    sleep_us(TM1637_DELAY);
+    DELAY();
     gpio_put(clk_, 0);
-    sleep_us(TM1637_DELAY);
+    DELAY();
 }
 
 /**
@@ -131,11 +139,11 @@ void TM1637::_stop()
 {
     // std::cout << __FUNCTION__ << std::endl;
     gpio_put(clk_, 0);
-    sleep_us(TM1637_DELAY);
+    DELAY();
     gpio_put(dio_, 0);
-    sleep_us(TM1637_DELAY);
+    DELAY();
     gpio_put(clk_, 1);
-    sleep_us(TM1637_DELAY);
+    DELAY();
     gpio_put(dio_, 1);
 }
 
@@ -173,18 +181,22 @@ void TM1637::_write_byte(uint8_t b)
     for (int i = 0; i < 8; ++i)
     {
         gpio_put(dio_, (b >> i) & 1);
-        sleep_us(TM1637_DELAY);
+        DELAY();
         gpio_put(clk_, 1);
-        sleep_us(TM1637_DELAY);
+        DELAY();
         gpio_put(clk_, 0);
-        sleep_us(TM1637_DELAY);
+        DELAY();
     }
     gpio_put(clk_, 0);
-    sleep_us(TM1637_DELAY);
+    DELAY();
     gpio_put(clk_, 1);
-    sleep_us(TM1637_DELAY);
+    gpio_set_dir(dio_, GPIO_IN);
+    ack = gpio_get(dio_);
+    // std::cout << ack << std::endl;
+    gpio_set_dir(dio_, GPIO_OUT);
+    DELAY();
     gpio_put(clk_, 0);
-    sleep_us(TM1637_DELAY);
+    DELAY();
 }
 
 /**
@@ -284,12 +296,24 @@ uint8_t TM1637::encode_char(char ch)
 {
     // Convert a character 0-9, a-z, space, dash or star to a segment."
     // o = ord(ch);
-    if (ch == 32)
+    if (ch == ' ')
         return _SEGMENTS[36]; //  space
     if (ch == 42)
         return _SEGMENTS[38]; //  star/degrees
-    if (ch == 45)
+    if (ch == '-')
         return _SEGMENTS[37]; //  dash
+    if (ch == '<')
+        return _SEGMENTS[39]; //  <
+    if (ch == '>')
+        return _SEGMENTS[40]; //  >
+    if (ch == '^')
+        return _SEGMENTS[41]; //  >
+    if (ch == '_')
+        return _SEGMENTS[42]; //  >
+    if (ch == '\\')
+        return _SEGMENTS[43]; //  >
+    if (ch == '/')
+        return _SEGMENTS[44]; //  >
     if ((ch >= 65) && (ch <= 90))
         return _SEGMENTS[ch - 55]; //  uppercase A-Z
     if ((ch >= 97) && (ch <= 122))
@@ -333,4 +357,9 @@ void TM1637::show(std::string str, bool colon)
 {
     Segments segments = encode_string(str);
     write(segments);
+}
+
+bool TM1637::is_present()
+{
+    return (ack != 1);
 }

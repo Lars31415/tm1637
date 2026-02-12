@@ -6,6 +6,7 @@
 #ifndef MY_TM1637_HPP
 #define MY_TM1637_HPP
 
+#include <pico/stdlib.h>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -85,10 +86,13 @@ public:
      */
     void show(std::string str, bool colon = false);
 
+    bool is_present();
+
 private:
     uint8_t clk_;        ///< Pin number for the clock (CLK) line.
     uint8_t dio_;        ///< Pin number for the data (DIO) line.
     uint8_t brightness_; ///< Brightness level for the display (0-7).
+    int ack;
 
     /**
      * @brief Private method to start communication with the TM1637.
@@ -115,6 +119,12 @@ private:
      * @param b The byte to be written.
      */
     void _write_byte(uint8_t b);
+
+    void DELAY()
+    {
+        for (int j_ = 0; j_ < 50; ++j_)
+            tight_loop_contents();
+    }
 };
 
 #endif // MY_TM1637_HPP
