@@ -1,0 +1,49 @@
+.program tm1637
+.side_set 1
+.wrap_target
+start:
+    set pins, 1 side 1 
+    pull side 1 
+    out x, 8 side 1 
+    jmp x-- dec_x side 1 
+dec_x:  
+    set pins, 0 side 1 
+write_byte:
+    pull ifempty side 1
+    set y, 7 side 0  
+send_bit: 
+    out pins, 1 side 0 
+    jmp y-- send_bit side 1  
+    set pindirs, 0 side 0 
+    set pindirs, 1 side 1
+    jmp x-- write_byte side 1
+stop: 
+    set pins, 0 side 0 
+    set pins, 1 side 1 
+.wrap             
+
+% c-sdk {
+
+// Helper function (for use in C program) to initialize this PIO program
+static inline void tm1637_program_init(PIO pio, uint sm, uint offset, uint sio_pin, uint clk_pin)
+{
+    // uint8_t sio_pin = pin;
+    // uint8_t clk_pin = pin + 1;
+    // for (int i = 0; i < 2; i++)
+    //     pio_gpio_init(pio, pin + i);
+    pio_gpio_init(pio, sio_pin);
+    pio_gpio_init(pio, clk_pin);
+    pio_sm_set_consecutive_pindirs(pio, sm, sio_pin, 1, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, clk_pin, 1, true);
+    pio_sm_config c = tm1637_program_get_default_config(offset);
+    sm_config_set_set_pins(&c, sio_pin, true);
+    sm_config_set_out_pins(&c, sio_pin, true);
+    sm_config_set_sideset_pin_base(&c, clk_pin);
+    sm_config_set_sideset(&c, 1, false, false);
+    sm_config_set_clkdiv_int_frac8(&c, 100, 0);
+    pio_set_irq0_source_enabled(pio, pis_interrupt0, true);
+    sm_config_set_out_shift(&c, true, false, 0);
+    pio_sm_init(pio, sm, offset, &c);
+}
+
+%}

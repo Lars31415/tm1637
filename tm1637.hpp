@@ -6,16 +6,17 @@
 #ifndef MY_TM1637_HPP
 #define MY_TM1637_HPP
 
-#include <pico/stdlib.h>
+#include <array>
 #include <cstdint>
+#include <hardware/pio.h>
+#include <pico/stdlib.h>
 #include <string>
-#include <vector>
 
 /**
  * @typedef Segments
  * @brief Type definition for an array of 7-segment LED segments.
  */
-typedef std::vector<uint8_t> Segments;
+typedef std::array<uint8_t, 6> Segments;
 
 /**
  * @class TM1637
@@ -23,14 +24,14 @@ typedef std::vector<uint8_t> Segments;
  */
 class TM1637
 {
-public:
+  public:
     /**
      * @brief Constructor for the TM1637 class.
      * @param clk Pin number for the clock (CLK) line.
      * @param dio Pin number for the data (DIO) line.
      * @param brightness Brightness level for the display (0-7).
      */
-    TM1637(uint8_t clk, uint8_t dio, uint8_t brightness = 7);
+    TM1637(PIO pio, uint sm, uint8_t clk, uint8_t dio, uint8_t brightness = 7);
 
     /**
      * @brief Set the brightness level of the display.
@@ -44,7 +45,7 @@ public:
      * @param segments Array of 7-segment LED segments.
      * @param pos Starting position on the display (0-5).
      */
-    void write(Segments segments, uint8_t pos = 0);
+    void write(Segments segments);
 
     /**
      * @brief Encode a decimal digit into a 7-segment LED segment.
@@ -71,7 +72,7 @@ public:
      * @brief Display a hexadecimal value on the TM1637 display.
      * @param val The hexadecimal value (0x0000 - 0xffff).
      */
-    void hex(uint16_t val);
+    void hex(uint32_t val);
 
     /**
      * @brief Display a numeric value on the TM1637 display.
@@ -88,21 +89,14 @@ public:
 
     bool is_present();
 
-private:
+  private:
+    PIO pio_;
+    uint sm_;
     uint8_t clk_;        ///< Pin number for the clock (CLK) line.
     uint8_t dio_;        ///< Pin number for the data (DIO) line.
     uint8_t brightness_; ///< Brightness level for the display (0-7).
     int ack;
-
-    /**
-     * @brief Private method to start communication with the TM1637.
-     */
-    void _start();
-
-    /**
-     * @brief Private method to stop communication with the TM1637.
-     */
-    void _stop();
+    Segments segments_;
 
     /**
      * @brief Private method to send the data command to the TM1637.
@@ -113,18 +107,6 @@ private:
      * @brief Private method to send the display control command to the TM1637.
      */
     void _write_dsp_ctrl();
-
-    /**
-     * @brief Private method to write a byte to the TM1637.
-     * @param b The byte to be written.
-     */
-    void _write_byte(uint8_t b);
-
-    void DELAY()
-    {
-        for (int j_ = 0; j_ < 50; ++j_)
-            tight_loop_contents();
-    }
 };
 
 #endif // MY_TM1637_HPP
